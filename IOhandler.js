@@ -9,9 +9,12 @@
  */
 
 const unzipper = require("unzipper"),
-  fs = require("fs"),
+  fs = require("fs").promises,
+  createReadStream = require('fs').createReadStream,
+  createWriteStream = require('fs').createWriteStream,
   PNG = require("pngjs").PNG,
   path = require("path");
+
 
 /**
  * Description: decompress file from given pathIn, write to given pathOut
@@ -21,13 +24,11 @@ const unzipper = require("unzipper"),
  * @return {promise}
  */
 const unzip = (pathIn, pathOut) => {
-  fs.createReadStream(pathIn)
+  return createReadStream(pathIn)
   .pipe(unzipper.Extract({ path: pathOut }))
   .promise()
-  .then( () => console.log('done'), e => console.log('error', e));
+  
 };
-
-unzip('myfile.zip', 'myfile')
 
 /**
  * Description: read all the png files from given directory and return Promise containing array of each png file path
@@ -36,7 +37,17 @@ unzip('myfile.zip', 'myfile')
  * @return {promise}
  */
 const readDir = (dir) => {
-  
+  const files = fs.readdir(dir)
+  .then((files) => {
+    let pngFiles = []
+    files.forEach(file => {
+      if (file.includes('.png')) {
+        pngFiles.push(file)
+      }
+    })
+    console.log(pngFiles)
+  })
+  .catch((err) => {console.log(err)})
 };
 
 /**
@@ -47,33 +58,30 @@ const readDir = (dir) => {
  * @param {string} pathProcessed
  * @return {promise}
  */
-// const grayScale = (pathIn, pathOut) => {
-//   fs.createReadStream("in.png")
-//   .pipe(
-//     new PNG()
-//   )
-//   .on("parsed", function () {
-//     for (var y = 0; y < this.height; y++) {
-//       for (var x = 0; x < this.width; x++) {
-//         var idx = (this.width * y + x) << 2;
+const grayScale = (pathIn, pathOut) => {
+  createReadStream(pathIn)
+  .pipe(
+    new PNG()
+    )
+  .on("parsed", function () {
+    for (var y = 0; y < this.height; y++) {
+      for (var x = 0; x < this.width; x++) {
+        var idx = (this.width * y + x) << 2;
  
-//         // invert color
-//         this.data[idx] = 255 - this.data[idx];
-//         this.data[idx + 1] = 255 - this.data[idx + 1];
-//         this.data[idx + 2] = 255 - this.data[idx + 2];
-//         // add these together and divide by 3 and give each pixel that colour
+        // grayscale
+        const greyValue = (this.data[idx] + this.data[idx+1] + this.data[idx+2])/3
+        this.data[idx] = greyValue
+        this.data[idx+1] = greyValue
+        this.data[idx+2] = greyValue
+      }
+    }
  
-//         // and reduce opacity
-//         this.data[idx + 3] = this.data[idx + 3] >> 1;
-//       }
-//     }
- 
-//     this.pack().pipe(fs.createWriteStream("out.png"));
-//   });
-// };
+    this.pack().pipe(createWriteStream(pathOut));
+  });
+};
 
 module.exports = {
   unzip,
   readDir,
-  // grayScale,
+  grayScale,
 };
